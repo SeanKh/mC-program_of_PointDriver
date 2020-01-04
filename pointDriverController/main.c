@@ -1,10 +1,16 @@
 /**
- * main.c
- */
+* main.c
+*/
+#include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
 #include "tm4c1294ncpdt.h"
 #include "int_handler.h"
 #include "inc/hw_memmap.h"
+
 #include "driverlib/sysctl.h"
 #include "driverlib/rom.h"
 #include "driverlib/gpio.h"
@@ -13,7 +19,7 @@
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
 
-
+//states[3]=[0,0,0]; //S0,S1,Error
 /**
  * main.c
  * 2 out 3,3V
@@ -112,9 +118,54 @@ int main(void)
                                   // GPIO PortC=priority 2
     NVIC_EN2_R |= (1<<8); // enable PortM interrupt (Int#72/Vec#88) in NVIC
 
+    //DEMO
+    //Placing instructions with keyboard
+    int i;
+    char name[2]="m";
+    //fflush(stdout);
+    printf("Please enter l or r");
+    fflush(stdout);
 
     while(1){
 
+
+
+        //gets(name);
+        //scanf(" %c", &name);
+        //fgets(name,5,stdin);
+        //getchar();
+/*
+        while(name != 'l' || name != 'r'){
+            fgets(name,2,stdin);
+
+            fflush(stdin);
+        }*/
+
+        while (fgets( name, 2, stdin) != NULL)
+           {
+               printf("%s\n", name);
+               fflush(stdout);
+           }
+
+
+        /*printf("U entered %c", name);
+        fflush(stdout);
+        if(name=="l")//PE0 is high
+        {
+            GPIO_PORTE_AHB_DATA_R |= 0x01; // PE0 high
+            for(i=0;i<500000;i++);
+            GPIO_PORTE_AHB_DATA_R &= 0x00; // PE0 LOW
+        }
+        else if(name=="r"){
+            GPIO_PORTE_AHB_DATA_R |= 0x02; // PE1 high
+            for(i=0;i<500000;i++);
+            GPIO_PORTE_AHB_DATA_R &= 0x00; // PE1 LOW
+        }
+        else{
+            printf("Pls enter l or r");
+            fflush (stdout);
+
+        }*/
 
     }
 }
