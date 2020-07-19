@@ -1,2 +1,4 @@
 # mC-program_of_PointDriver
-mC-program_of_PointDriver using Tiva C launchpad
+
+Project for controlling points on the railways by programming micro-controller on Tiva C launchpad from Texas Instruments.
+
