@@ -1,10 +1,15 @@
 /**
- * main.c
- */
+* main.c
+*/
+#include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
 #include "tm4c1294ncpdt.h"
-#include "int_handler.h"
 #include "inc/hw_memmap.h"
+
 #include "driverlib/sysctl.h"
 #include "driverlib/rom.h"
 #include "driverlib/gpio.h"
@@ -13,12 +18,21 @@
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
 
-
+//states[3]=[0,0,0]; //S0,S1,Error
 /**
  * main.c
  * 2 out 3,3V
  * 2 in 3,3V
  */
+void SysTick_Wait(uint32_t delay);
+void SysTickWait10ms();
+void SysTickWait40ms();
+void SysTickWait5s();
+
+unsigned int n;
+char states[4];
+char instructionToExec[4];
+
 int main(void)
 {
     // Port Clock Gating Control Port A
@@ -30,16 +44,6 @@ int main(void)
     GPIO_PORTA_AHB_DEN_R |= 0x40;
     GPIO_PORTA_AHB_DATA_R &= 0x00;
     //GPIO_PORTA_AHB_AFSEL_R &= ~0x40; // disable alt funct on PA6 (default setting)
-
-    //GPIO_PORTA_AHB_PCTL_R &= ~0x0F000000;// configure PA6 as GPIO (default setting)
-    //GPIO_PORTA_AHB_AMSEL_R &= ~0x40;// disable analog functionality on PA6 (default setting)
-    GPIO_PORTA_AHB_IS_R &= ~0x40;   // PA6 is edge-sensitive (default setting)
-    GPIO_PORTA_AHB_IBE_R &= ~0x40;  // PA6 is not both edges (default setting)
-    GPIO_PORTA_AHB_IEV_R |= 0x40;   // PA6 rising edge event
-    GPIO_PORTA_AHB_ICR_R = 0x40;    // clear flag6
-    GPIO_PORTA_AHB_IM_R |= 0x40;    // enable interrupt on PA6
-                                // GPIO PortC=priority 2
-    NVIC_EN0_R |= (1<<0); // enable PortA interrupt (Int#0/Vec#16) in NVIC
 
 
     // Port Clock Gating Control Port B
@@ -68,16 +72,6 @@ int main(void)
     // Digital I/O pins PD3 AND PD7 enable
     GPIO_PORTD_AHB_DEN_R |= 0x88;
 
-    GPIO_PORTD_AHB_IS_R &= ~0x80;   // PD7 is edge-sensitive (default setting)
-    GPIO_PORTD_AHB_IBE_R &= ~0x80;  // PD7 is not both edges (default setting)
-    GPIO_PORTD_AHB_IEV_R |= 0x80;   // PD7 rising edge event
-    GPIO_PORTD_AHB_ICR_R = 0x80;    // clear flag6
-    GPIO_PORTD_AHB_IM_R |= 0x80;    // enable interrupt on PA6
-
-    NVIC_EN0_R |= (1<<3); // enable PortD interrupt (Int#3/Vec#19) in NVIC
-
-
-
     // Port Clock Gating Control Port E
     SYSCTL_RCGCGPIO_R |= (1 << 4);
     while((SYSCTL_PRGPIO_R & (1 << 4)) == 0);
@@ -87,15 +81,6 @@ int main(void)
     // Digital I/O pins PE0 to PE3 AND PE5 enable
     GPIO_PORTE_AHB_DEN_R |= 0x2F;
 
-    GPIO_PORTE_AHB_IS_R &= ~0x0F;   // PE0 to PE3 is edge-sensitive (default setting)
-    GPIO_PORTE_AHB_IBE_R &= ~0x0F;  // PA6 is not both edges (default setting)
-    GPIO_PORTE_AHB_IEV_R |= 0x0F;   // PA6 rising edge event
-    GPIO_PORTE_AHB_ICR_R = 0x0F;    // clear flag6
-    GPIO_PORTE_AHB_IM_R |= 0x0F;    // enable interrupt on PA6
-                                // GPIO PortC=priority 2
-    NVIC_EN0_R |= (1<<4); // enable PortE interrupt (Int#4/Vec#20) in NVIC
-
-
     // Port Clock Gating Control Port M
     SYSCTL_RCGCGPIO_R |= (1 << 11);
     while((SYSCTL_PRGPIO_R & (1 << 11)) == 0);
@@ -104,17 +89,74 @@ int main(void)
     // Digital I/O pins PM4 and PM5 enable
     GPIO_PORTM_DEN_R |= 0x30;
 
-    GPIO_PORTM_IS_R &= ~0x30;   // PE0 to PE3 is edge-sensitive (default setting)
-    GPIO_PORTM_IBE_R &= ~0x30;  // PA6 is not both edges (default setting)
-    GPIO_PORTM_IEV_R |= 0x30;   // PA6 rising edge event
-    GPIO_PORTM_ICR_R = 0x30;    // clear flag6
-    GPIO_PORTM_IM_R |= 0x30;    // enable interrupt on PA6
-                                  // GPIO PortC=priority 2
-    NVIC_EN2_R |= (1<<8); // enable PortM interrupt (Int#72/Vec#88) in NVIC
+    //DEMO
+    //Placing instructions with keyboard
+
+    //unsigned char instructionToExec=0x0;
+    //int errorSignal, errorCounter;
+
+    //normal one-shot down-counting timer without interrupt HERE
 
 
     while(1){
 
+        SysTickWait3s();
 
+        states[0]=GPIO_PORTE_AHB_DATA_R & 0x03; //PE0 and PE1 Input Pins
+        states[1]=((GPIO_PORTE_AHB_DATA_R>> 2) & 0x03) ; // PE2 and PE3 Input Pins
+        states[2]=((GPIO_PORTD_AHB_DATA_R | GPIO_PORTA_AHB_DATA_R) & 0xC0) >> 6; //PD7 And PA6 Input Pins
+        states[3]=((GPIO_PORTM_DATA_R | GPIO_PORTM_DATA_R) & 0x30) >> 4; //PM4 and PM5 Input Pins
+
+        for(n=0; n<3;n++){
+
+           switch(states[n])
+            {
+               case 1: instructionToExec[n] = 0x02; /*high*/ break;
+               case 2: instructionToExec[n] = 0x01; /* high*/ break;
+               default: /*case 0 and case 3*/ instructionToExec[n] &= 0x00; break;
+            }
+        }
+
+        GPIO_PORTC_AHB_DATA_R |= instructionToExec[0] << 4; // PC4 or PC5 high
+        GPIO_PORTC_AHB_DATA_R |= (instructionToExec[1] << 5) & 0x40; //PC6
+        GPIO_PORTE_AHB_DATA_R |= (instructionToExec[1] << 5) & 0x20; // PE5
+        GPIO_PORTD_AHB_DATA_R |= (instructionToExec[2] << 2) & 0x20; // PD3
+        GPIO_PORTC_AHB_DATA_R |= (instructionToExec[2] << 7) & 0x80; // PC7
+        GPIO_PORTB_AHB_DATA_R |= (instructionToExec[3] << 1) & 0x04; // PB2
+        GPIO_PORTB_AHB_DATA_R |= (instructionToExec[3] << 3) & 0x08; // PB3
+
+        SysTickWait40ms(); // 30 ms wait
+
+        //Clear data values of ports
+        GPIO_PORTB_AHB_DATA_R &= 0x00;
+        GPIO_PORTC_AHB_DATA_R &= 0x00;
+        GPIO_PORTD_AHB_DATA_R &= 0x00;
+        GPIO_PORTE_AHB_DATA_R &= 0x00;
+    }
+}
+
+/* delay is in 62.5ns units */
+void SysTick_Wait(uint32_t delay){
+    NVIC_ST_CTRL_R = 0;            /* (1) disable SysTick during setup */
+    NVIC_ST_RELOAD_R = delay-1;    /* (2) number of counts to wait */
+    NVIC_ST_CURRENT_R = 0;         /* (3) any value written to CURRENT clears */
+    NVIC_ST_CTRL_R |= 0x5;         /* (4) enable SysTick with core clock */
+
+    while((NVIC_ST_CTRL_R&0x00010000)==0) {}
+}
+
+void SysTickWait10ms(){
+    SysTick_Wait(16000000/100);//wait for 10 ms
+}
+
+void SysTickWait40ms(){
+    for(n=0;n<4;n++){
+        SysTickWait10ms();
+    }
+}
+
+void SysTickWait3s(){
+    for(n=0;n<300;n++){
+        SysTickWait10ms();
     }
 }
